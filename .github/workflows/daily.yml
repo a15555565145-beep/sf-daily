@@ -17,6 +17,8 @@ jobs:
       run: pip install requests
     - name: Run script
       run: python fetch.py
+      env:
+        DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     - name: Commit and push
       run: |
         git config --global user.name "GitHub Action"
