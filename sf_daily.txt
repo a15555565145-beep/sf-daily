@@ -1,4 +1,4 @@
 【Soulframe 每日播报】
 📅 日期：2026-10-29
 
-当前网页只显示连接检查与启用 JavaScript/cookies 的提示，未包含“CURRENT ANCESTOR”或“Today's Weapons”相关内容，因此无法提取先祖名字和武器列表。
+被拦截
