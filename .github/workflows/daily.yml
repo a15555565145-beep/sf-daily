@@ -1,0 +1,26 @@
+name: Daily Update
+on:
+  schedule:
+    - cron: '5 0 * * *' # 每天北京时间 8:05 运行
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - name: Install dependencies
+      run: pip install requests
+    - name: Run script
+      run: python fetch.py
+    - name: Commit and push
+      run: |
+        git config --global user.name "GitHub Action"
+        git config --global user.email "action@github.com"
+        git add sf_daily.txt
+        git commit -m "Update daily info" || exit 0
+        git push
