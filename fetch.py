@@ -1,10 +1,6 @@
-import os
 import requests
 import re
 import datetime
-
-# 填入你的 DeepSeek API Key
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 def fetch_data():
     url = "https://wiki.avakot.org/"
@@ -17,29 +13,30 @@ def fetch_data():
     text = re.sub(r'<[^>]+>', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
 
-    # 调用 DeepSeek 提取信息
-    api_url = "https://api.deepseek.com/v1/chat/completions"
-    api_headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "你是一个数据提取机器人。请阅读用户提供的网页纯文本，提取出【当前的先祖名字】以及【今日商店出售的武器名称与价格】。请用简洁的中文输出，格式为：\n🔮 当前先祖：xxx\n⚔️ 今日武器：xxx, xxx。不要输出任何废话。"},
-            {"role": "user", "content": text[:30000]} 
-        ]
-    }
-    
-    res = requests.post(api_url, headers=api_headers, json=payload, timeout=60)
-    ai_result = res.json()['choices'][0]['message']['content']
+    # 直接用正则硬抠
+    ancestor = "未知"
+    match_anc = re.search(r'CURRENT ANCESTOR\s*([A-Za-z]+)', text, re.IGNORECASE)
+    if match_anc:
+        ancestor = match_anc.group(1).strip()
+    else:
+        # 尝试另一种可能
+        match_anc2 = re.search(r'CURRENT ANCESTOR.*?([A-Z][a-z]+)', text, re.IGNORECASE)
+        if match_anc2:
+            ancestor = match_anc2.group(1).strip()
+
+    weapons = "未知"
+    match_wep = re.search(r"Today's Weapons(.*?)(?:WEATHERWAYS|Search|CURRENT)", text, re.DOTALL | re.IGNORECASE)
+    if match_wep:
+        # 只取前面一部分，去除多余空行
+        lines = [l.strip() for l in match_wep.group(1).strip().split('\n') if l.strip()]
+        weapons = ", ".join(lines[:8])
 
     # 拼装结果
-    result = f"【Soulframe 每日播报】\n📅 日期：{datetime.datetime.now().strftime('%Y-%m-%d')}\n\n{ai_result}"
+    result = f"【Soulframe 每日播报】\n📅 日期：{datetime.datetime.now().strftime('%Y-%m-%d')}\n\n🔮 当前先祖：{ancestor}\n⚔️ 今日武器：{weapons}"
     return result
 
 if __name__ == "__main__":
     data = fetch_data()
     with open("sf_daily.txt", "w", encoding="utf-8") as f:
         f.write(data)
-    print("抓取并提取完毕！")
+    print("抓取完毕！")
