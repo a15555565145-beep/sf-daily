@@ -1,9 +1,10 @@
+import os
 import requests
 import re
 import datetime
 
 # 填入你的 DeepSeek API Key
-DEEPSEEK_API_KEY = ""
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 def fetch_data():
     url = "https://wiki.avakot.org/"
