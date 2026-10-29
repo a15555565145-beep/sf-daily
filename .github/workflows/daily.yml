@@ -1,7 +1,7 @@
 name: Daily Update
 on:
   schedule:
-    - cron: '5 0 * * *' # 每天北京时间 8:05 运行
+    - cron: '5 0 * * *'
   workflow_dispatch:
 
 jobs:
@@ -14,11 +14,11 @@ jobs:
       with:
         python-version: '3.11'
     - name: Install dependencies
-      run: pip install requests
+      run: |
+        pip install playwright
+        playwright install chromium
     - name: Run script
       run: python fetch.py
-      env:
-        DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
     - name: Commit and push
       run: |
         git config --global user.name "GitHub Action"
