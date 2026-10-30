@@ -1,50 +1,52 @@
-import requests
+import asyncio
+import re
 import datetime
-import json
+from playwright.async_api import async_playwright
 
-def fetch_data():
-    api_url = "https://wiki.avakot.org/w/api.php?action=parse&page=Main_Page&prop=wikitext&format=json"
-    
-    # 终极伪装头部
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
-    }
-    
-    try:
-        response = requests.get(api_url, headers=headers, timeout=15)
-        
-        # 如果返回的状态码不是 200，说明被拦截了
-        if response.status_code != 200:
-            return f"【Soulframe 每日播报】\nAPI 被拦截，状态码: {response.status_code}"
-            
-        data = response.json()
-        
-        # 如果返回的数据里没有 parse 字段，说明格式不对
-        if 'parse' not in data:
-            return f"【Soulframe 每日播报】\nAPI 解析失败，返回内容: {str(data)[:100]}"
+async def fetch_data():
+    print("启动隐身浏览器...")
+    async with async_playwright() as p:
+        # 启动 Chromium 浏览器，headless=True 表示无头模式（后台运行）
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
 
-        wikitext = data['parse']['wikitext']['*']
-        
-        ancestor = "未找到"
-        if "ancestor =" in wikitext:
-            part = wikitext.split("ancestor =")[1]
-            ancestor = part.split("|")[0].strip()
+        # 关键：模拟真实浏览器特征，降低被检测概率
+        await page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN', 'zh', 'en']});
+        """)
 
-        weapons = "未找到"
-        if "Today's Weapons" in wikitext:
-            part = wikitext.split("Today's Weapons")[1]
-            weapons = part[:200].replace("\n", " ").strip()
+        print("访问网页...")
+        await page.goto("https://wiki.avakot.org/", timeout=60000)
 
-        result = f"【Soulframe 每日播报】\n📅 日期：{datetime.datetime.now().strftime('%Y-%m-%d')}\n\n🔮 当前先祖：{ancestor}\n⚔️ 今日武器：{weapons}"
-        return result
-        
-    except Exception as e:
-        return f"【Soulframe 每日播报】\n请求异常: {e}"
+        # 等待页面核心内容加载（等待包含“CURRENT ANCESTOR”的文本出现）
+        try:
+            await page.wait_for_function("document.body.innerText.includes('CURRENT ANCESTOR')", timeout=30000)
+        except:
+            print("等待超时，可能被拦截或页面结构变化。")
+
+        # 获取网页上的所有纯文本
+        text = await page.evaluate("document.body.innerText")
+        await browser.close()
+
+    # 用正则提取先祖和武器
+    ancestor = "未知"
+    match_anc = re.search(r'CURRENT ANCESTOR\s*([A-Za-z]+)', text, re.IGNORECASE)
+    if match_anc:
+        ancestor = match_anc.group(1).strip()
+
+    weapons = "未知"
+    match_wep = re.search(r"Today's Weapons(.*?)(?:WEATHERWAYS|Search|CURRENT)", text, re.DOTALL | re.IGNORECASE)
+    if match_wep:
+        lines = [l.strip() for l in match_wep.group(1).strip().split('\n') if l.strip()]
+        weapons = ", ".join(lines[:8])
+
+    result = f"【Soulframe 每日播报】\n📅 日期：{datetime.datetime.now().strftime('%Y-%m-%d')}\n\n🔮 当前先祖：{ancestor}\n⚔️ 今日武器：{weapons}"
+    return result
 
 if __name__ == "__main__":
-    data = fetch_data()
+    data = asyncio.run(fetch_data())
     with open("sf_daily.txt", "w", encoding="utf-8") as f:
         f.write(data)
     print("抓取完毕！")
